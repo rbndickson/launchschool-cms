@@ -49,4 +49,26 @@ class AppTest < Minitest::Test
 
     assert_includes last_response.body, '<h1>About Page</h1>'
   end
+
+  def test_editing_document
+    get '/changes.txt/edit'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'Edit contents of changes.txt'
+    assert_includes last_response.body, 'Update File'
+  end
+
+  def test_saving_changes_to_document
+    post '/changes.txt', content: 'Updated content'
+
+    assert_equal 302, last_response.status
+
+    get last_response['Location']
+
+    assert_includes last_response.body, 'changes.txt has been updated'
+
+    get '/changes.txt'
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, 'Updated content'
+  end
 end

@@ -1,5 +1,5 @@
 #About Page
 
-Write about your site here.
+This page is written in Markdown.
 
-[Markdown](https://daringfireball.net/projects/markdown/) can be used to format the text.
+Find more about Markdown syntax [here](https://daringfireball.net/projects/markdown/).
