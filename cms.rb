@@ -30,6 +30,27 @@ get '/' do
   erb :index
 end
 
+get '/new' do
+  erb :new
+end
+
+post '/create' do
+  filename = params[:filename].to_s
+
+  if filename.length == 0
+    session[:message] = 'You must enter a name.'
+    status 422
+    erb :new
+  else
+    file_path = File.join(data_path, filename)
+
+    File.write(file_path, '')
+    session[:message] = "#{params[:filename]} has been created."
+
+    redirect '/'
+  end
+end
+
 def load_file_content(file_path)
   content = File.read(file_path)
 
