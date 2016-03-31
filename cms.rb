@@ -2,10 +2,32 @@ require 'sinatra'
 require 'sinatra/reloader'
 require 'tilt/erubis'
 require 'redcarpet'
+require 'yaml'
+require 'bcrypt'
 
 configure do
   enable :sessions
   set :session_secret, 'super secret'
+end
+
+def load_user_credentials
+  credentials_path = if ENV["RACK_ENV"] == "test"
+    File.expand_path("../test/users.yml", __FILE__)
+  else
+    File.expand_path("../users.yml", __FILE__)
+  end
+  YAML.load_file(credentials_path)
+end
+
+def valid_credentials?(username, password)
+  credentials = load_user_credentials
+
+  if credentials.key?(username)
+    bcrypt_password = BCrypt::Password.new(credentials[username])
+    bcrypt_password == password
+  else
+    false
+  end
 end
 
 def data_path
@@ -37,8 +59,10 @@ get '/users/signin' do
 end
 
 post '/users/signin' do
-  if params[:username] == 'admin' && params[:password] == 'password'
-    session[:username] = params[:username]
+  username = params[:username]
+
+  if valid_credentials?(username, params[:password])
+    session[:username] = username
     session[:message] = 'You are now signed in.'
 
     redirect '/'
