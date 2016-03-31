@@ -9,10 +9,10 @@ configure do
 end
 
 def data_path
-  if ENV["RACK_ENV"] == "test"
-    File.expand_path("../test/data", __FILE__)
+  if ENV['RACK_ENV'] == 'test'
+    File.expand_path('../test/data', __FILE__)
   else
-    File.expand_path("../data", __FILE__)
+    File.expand_path('../data', __FILE__)
   end
 end
 
@@ -21,8 +21,33 @@ def render_markdown(text)
   markdown.render(text)
 end
 
+get '/users/signin' do
+  erb :signin
+end
+
+post '/users/signin' do
+  if params[:username] == 'admin' && params[:password] == 'password'
+    session[:username] = params[:username]
+    session[:message] = 'You are now signed in.'
+
+    redirect '/'
+  else
+    session[:message] = 'Username or password is incorrect.'
+    status 422
+
+    erb :signin
+  end
+end
+
+post '/users/signout' do
+  session.delete(:username)
+  session[:message] = 'You have signed out.'
+
+  redirect '/'
+end
+
 get '/' do
-  pattern = File.join(data_path, "*")
+  pattern = File.join(data_path, '*')
   @files = Dir.glob(pattern).map do |path|
     File.basename(path)
   end
@@ -102,5 +127,5 @@ post "/:file/destroy" do
   File.delete(file_path)
 
   session[:message] = "#{params[:file]} has been deleted."
-  redirect "/"
+  redirect '/'
 end

@@ -132,4 +132,39 @@ class AppTest < Minitest::Test
     get '/'
     refute_includes last_response.body, 'test.txt'
   end
+
+  def test_signin_form
+    get '/users/signin'
+
+    assert_equal 200, last_response.status
+    assert_includes last_response.body, '<input'
+    assert_includes last_response.body, %q(<button type="submit")
+  end
+
+  def test_signin
+    post '/users/signin', username: 'admin', password: 'password'
+    assert_equal 302, last_response.status
+
+    get last_response['Location']
+    assert_includes last_response.body, 'You are now signed in.'
+    assert_includes last_response.body, 'Signed in as admin'
+  end
+
+  def test_signin_with_bad_credentials
+    post '/users/signin', username: 'admin', password: 'incorrect_password'
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'Username or password is incorrect.'
+  end
+
+  def test_signout
+    post '/users/signin', username: 'admin', password: 'password'
+    get last_response['Location']
+    assert_includes last_response.body, 'You are now signed in.'
+
+    post '/users/signout'
+    get last_response['Location']
+
+    assert_includes last_response.body, 'You have signed out'
+    assert_includes last_response.body, 'Sign In'
+  end
 end
