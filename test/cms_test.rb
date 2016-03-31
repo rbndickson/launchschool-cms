@@ -2,6 +2,7 @@ ENV['RACK_ENV'] = 'test'
 
 require 'minitest/autorun'
 require 'rack/test'
+require 'fileutils'
 
 require_relative '../cms'
 
@@ -12,18 +13,35 @@ class AppTest < Minitest::Test
     Sinatra::Application
   end
 
+  def setup
+    FileUtils.mkdir_p(data_path)
+  end
+
+  def teardown
+    FileUtils.rm_rf(data_path)
+  end
+
+  def create_document(name, content = "")
+    File.open(File.join(data_path, name), "w") do |file|
+      file.write(content)
+    end
+  end
+
   def test_index
+    create_document 'about.md'
+    create_document 'changes.txt'
+
     get '/'
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-
     assert_includes last_response.body, 'about.md'
     assert_includes last_response.body, 'changes.txt'
-    assert_includes last_response.body, 'history.txt'
   end
 
-  def test_file_view
+  def test_viewing_text_file
+    create_document 'history.txt', 'Yukihiro Matsumoto dreams up Ruby.'
+
     get '/history.txt'
 
     assert_equal 200, last_response.status
@@ -31,7 +49,18 @@ class AppTest < Minitest::Test
     assert_includes last_response.body, 'Yukihiro Matsumoto dreams up Ruby.'
   end
 
-  def test_non_existant_document
+  def test_viewing_markdown_document
+    create_document 'about.md', '#About Page'
+
+    get '/about.md'
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+
+    assert_includes last_response.body, '<h1>About Page</h1>'
+  end
+
+  def test_viewing_non_existant_document
     get '/xyz.txt'
 
     assert_equal 302, last_response.status
@@ -41,20 +70,13 @@ class AppTest < Minitest::Test
     assert_includes last_response.body, 'xyz.txt does not exist'
   end
 
-  def test_markdown_document
-    get '/about.md'
+  def test_editing_document_page
+    create_document 'changes.txt'
 
-    assert_equal 200, last_response.status
-    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-
-    assert_includes last_response.body, '<h1>About Page</h1>'
-  end
-
-  def test_editing_document
     get '/changes.txt/edit'
 
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'Edit contents of changes.txt'
+    assert_includes last_response.body, 'Edit contents of changes.txt:'
     assert_includes last_response.body, 'Update File'
   end
 
