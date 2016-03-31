@@ -27,6 +27,10 @@ class AppTest < Minitest::Test
     end
   end
 
+  def session
+    last_request.env["rack.session"]
+  end
+
   def test_index
     create_document 'about.md'
     create_document 'changes.txt'
@@ -64,10 +68,7 @@ class AppTest < Minitest::Test
     get '/xyz.txt'
 
     assert_equal 302, last_response.status
-    get last_response['Location']
-
-    assert_equal 200, last_response.status
-    assert_includes last_response.body, 'xyz.txt does not exist'
+    assert_equal 'xyz.txt does not exist.', session[:message]
   end
 
   def test_editing_document_page
@@ -84,10 +85,7 @@ class AppTest < Minitest::Test
     post '/changes.txt', content: 'Updated content'
 
     assert_equal 302, last_response.status
-
-    get last_response['Location']
-
-    assert_includes last_response.body, 'changes.txt has been updated'
+    assert_includes 'changes.txt has been updated.', session[:message]
 
     get '/changes.txt'
     assert_equal 200, last_response.status
@@ -105,9 +103,7 @@ class AppTest < Minitest::Test
   def test_create_new_document
     post '/create', filename: 'test.txt'
     assert_equal 302, last_response.status
-
-    get last_response['Location']
-    assert_includes last_response.body, 'test.txt has been created'
+    assert_equal 'test.txt has been created.', session[:message]
 
     get '/'
     assert_includes last_response.body, 'test.txt'
@@ -123,14 +119,11 @@ class AppTest < Minitest::Test
     create_document('test.txt')
 
     post '/test.txt/destroy'
-
     assert_equal 302, last_response.status
-
-    get last_response['Location']
-    assert_includes last_response.body, 'test.txt has been deleted'
+    assert_includes 'test.txt has been deleted.', session[:message]
 
     get '/'
-    refute_includes last_response.body, 'test.txt'
+    refute_includes last_response.body, %q(href="/test.txt')
   end
 
   def test_signin_form
@@ -144,26 +137,27 @@ class AppTest < Minitest::Test
   def test_signin
     post '/users/signin', username: 'admin', password: 'password'
     assert_equal 302, last_response.status
+    assert_equal 'You are now signed in.', session[:message]
 
     get last_response['Location']
-    assert_includes last_response.body, 'You are now signed in.'
     assert_includes last_response.body, 'Signed in as admin'
   end
 
   def test_signin_with_bad_credentials
     post '/users/signin', username: 'admin', password: 'incorrect_password'
     assert_equal 422, last_response.status
+    assert_equal nil, session[:username]
     assert_includes last_response.body, 'Username or password is incorrect.'
   end
 
   def test_signout
-    post '/users/signin', username: 'admin', password: 'password'
-    get last_response['Location']
-    assert_includes last_response.body, 'You are now signed in.'
+    get '/', {}, { 'rack.session' => { username: 'admin' } }
+    assert_includes last_response.body, 'Signed in as admin'
 
     post '/users/signout'
     get last_response['Location']
 
+    assert_equal nil, session[:username]
     assert_includes last_response.body, 'You have signed out'
     assert_includes last_response.body, 'Sign In'
   end
