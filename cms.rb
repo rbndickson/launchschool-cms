@@ -21,6 +21,17 @@ def render_markdown(text)
   markdown.render(text)
 end
 
+def user_signed_in?
+  session.key?(:username)
+end
+
+def require_signed_in_user
+  unless user_signed_in?
+    session[:message] = "You must be signed in to do that."
+    redirect "/"
+  end
+end
+
 get '/users/signin' do
   erb :signin
 end
@@ -56,10 +67,14 @@ get '/' do
 end
 
 get '/new' do
+  require_signed_in_user
+
   erb :new
 end
 
 post '/create' do
+  require_signed_in_user
+
   filename = params[:filename].to_s
 
   if filename.length == 0
@@ -100,6 +115,8 @@ get '/:file' do
 end
 
 get '/:file/edit' do
+  require_signed_in_user
+
   file_path = File.join(data_path, params[:file])
 
   if File.exist?(file_path)
@@ -113,6 +130,8 @@ get '/:file/edit' do
 end
 
 post '/:file' do
+  require_signed_in_user
+
   file_path = File.join(data_path, params[:file])
 
   File.write(file_path, params[:content])
@@ -121,7 +140,9 @@ post '/:file' do
   redirect '/'
 end
 
-post "/:file/destroy" do
+post '/:file/destroy' do
+  require_signed_in_user
+
   file_path = File.join(data_path, params[:file])
 
   File.delete(file_path)

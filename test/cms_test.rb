@@ -28,7 +28,11 @@ class AppTest < Minitest::Test
   end
 
   def session
-    last_request.env["rack.session"]
+    last_request.env['rack.session']
+  end
+
+  def admin_session
+    { 'rack.session' => { username: 'admin' } }
   end
 
   def test_index
@@ -74,15 +78,24 @@ class AppTest < Minitest::Test
   def test_editing_document_page
     create_document 'changes.txt'
 
-    get '/changes.txt/edit'
+    get '/changes.txt/edit', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, 'Edit contents of changes.txt:'
     assert_includes last_response.body, 'Update File'
   end
 
+  def test_editing_document_signed_out
+    create_document 'changes.txt'
+
+    get '/changes.txt/edit'
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:message]
+  end
+
   def test_saving_changes_to_document
-    post '/changes.txt', content: 'Updated content'
+    post '/changes.txt', {content: 'Updated content'}, admin_session
 
     assert_equal 302, last_response.status
     assert_includes 'changes.txt has been updated.', session[:message]
@@ -92,16 +105,30 @@ class AppTest < Minitest::Test
     assert_includes last_response.body, 'Updated content'
   end
 
+  def test_updating_document_signed_out
+    post '/changes.txt', {content: 'new content'}
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:message]
+  end
+
   def test_view_new_document_form
-    get '/new'
+    get '/new', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_includes last_response.body, '<input'
     assert_includes last_response.body, %q(<button type="submit")
   end
 
+  def test_view_new_document_form_signed_out
+    get '/new'
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:message]
+  end
+
   def test_create_new_document
-    post '/create', filename: 'test.txt'
+    post '/create', {filename: 'test.txt'}, admin_session
     assert_equal 302, last_response.status
     assert_equal 'test.txt has been created.', session[:message]
 
@@ -109,8 +136,15 @@ class AppTest < Minitest::Test
     assert_includes last_response.body, 'test.txt'
   end
 
+  def test_create_new_document_signed_out
+    post '/create', {filename: 'test.txt'}
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:message]
+  end
+
   def test_create_new_document_without_filename
-    post '/create', filename: ''
+    post '/create', {filename: ''}, admin_session
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'You must enter a name.'
   end
@@ -118,12 +152,20 @@ class AppTest < Minitest::Test
   def test_deleting_document
     create_document('test.txt')
 
-    post '/test.txt/destroy'
+    post '/test.txt/destroy', {}, admin_session
     assert_equal 302, last_response.status
     assert_includes 'test.txt has been deleted.', session[:message]
 
     get '/'
-    refute_includes last_response.body, %q(href="/test.txt')
+    refute_includes last_response.body, %q(href="/test.txt")
+  end
+
+  def test_deleting_document_signed_out
+    create_document('test.txt')
+
+    post '/test.txt/destroy'
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:message]
   end
 
   def test_signin_form
@@ -151,7 +193,7 @@ class AppTest < Minitest::Test
   end
 
   def test_signout
-    get '/', {}, { 'rack.session' => { username: 'admin' } }
+    get '/', {}, admin_session
     assert_includes last_response.body, 'Signed in as admin'
 
     post '/users/signout'
